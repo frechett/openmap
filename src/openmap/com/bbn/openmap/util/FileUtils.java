@@ -495,7 +495,7 @@ public class FileUtils {
                     result = buf;
                 } else {
                     if (bufs == null) {
-                        bufs = new ArrayList<>();
+                        bufs = new ArrayList<byte[]>();
                         bufs.add(result);
                     }
                     bufs.add(buf);
