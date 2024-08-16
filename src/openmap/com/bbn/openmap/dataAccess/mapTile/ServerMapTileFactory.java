@@ -69,10 +69,13 @@ import com.bbn.openmap.util.cacheHandler.CacheObject;
  */
 public class ServerMapTileFactory extends StandardMapTileFactory implements MapTileFactory,
         PropertyConsumer {
-
     public final static String LOCAL_CACHE_ROOT_DIR_PROPERTY = "localCacheRootDir";
+    private static final int TIMEOUT_DEFAULT = 5000;
+    /** Timeout property */
+    public final static String TIMEOUT_PROPERTY = "timeout";
 
     protected String localCacheDir = null;
+    private int timeout = TIMEOUT_DEFAULT;
 
     public ServerMapTileFactory() {
         this(null);
@@ -194,73 +197,54 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
      * @return byte[] of image
      */
     public byte[] getImageBytes(String imagePath, String localFilePath) {
+        InputStream in = null;
         byte[] imageBytes = null;
-
         try {
             java.net.URL url = new java.net.URL(imagePath);
             java.net.URLConnection urlc = url.openConnection();
-
-            if (isVerbose()) {
-                logMessage("url content type: " + urlc.getContentType());
-            }
-
-            if (urlc == null || urlc.getContentType() == null) {
+            urlc.setConnectTimeout(timeout);
+            final String contentType = urlc.getContentType();
+            if (contentType != null && contentType.startsWith("image")) {
+                in = urlc.getInputStream();
+                imageBytes = FileUtils.readNBytes(in, Integer.MAX_VALUE, urlc.getContentLength());
                 if (isVerbose()) {
-                    logMessage("unable to connect to (tile might be unavailable): " + imagePath);
+                    logMessage("getImageBytes(" + imagePath + "): " + localFilePath);
                 }
-
-                // text
-            } else if (urlc.getContentType().startsWith("text")) {
-                java.io.BufferedReader bin = new java.io.BufferedReader(new java.io.InputStreamReader(urlc.getInputStream()));
-                String st;
-                StringBuffer message = new StringBuffer();
-                while ((st = bin.readLine()) != null) {
-                    message.append(st);
-                }
-
-                // Debug.error(message.toString());
-                // How about we toss the message out to the user
-                // instead?
-                logMessage(message.toString());
-
-                // image
-            } else if (urlc.getContentType().startsWith("image")) {
-
-                InputStream in = urlc.getInputStream();
-                // ------- Testing without this
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                int buflen = 2048; // 2k blocks
-                byte buf[] = new byte[buflen];
-                int len = -1;
-                while ((len = in.read(buf, 0, buflen)) != -1) {
-                    out.write(buf, 0, len);
-                }
-                out.flush();
-                out.close();
-
-                imageBytes = out.toByteArray();
-
                 if (localFilePath != null) {
                     File localFile = new File(localFilePath);
-
                     File parentDir = localFile.getParentFile();
                     parentDir.mkdirs();
-
-                    FileOutputStream fos = new FileOutputStream(localFile);
-                    fos.write(imageBytes);
-                    fos.flush();
-                    fos.close();
-                }
-
-            } // end if image
+                    try (FileOutputStream fos = new FileOutputStream(localFile)) {
+                        fos.write(imageBytes);
+                    } catch (java.io.IOException ex) {
+                        logMessage(Level.WARNING, "I/O Errror writing data for URL ("
+                                + imagePath + "): " + ex.getLocalizedMessage());
+                    }
+            }
+            } else {
+                logMessage(Level.WARNING, "URL (" + imagePath
+                        + ") has unexpected content type: " + contentType);
+            }
         } catch (java.net.MalformedURLException murle) {
-            logger.warning("ServerMapTileFactory: URL \"" + imagePath + "\" is malformed.");
-        } catch (java.io.IOException ioe) {
-            logMessage("Couldn't connect to " + imagePath + ", connection problem");
+            logMessage(Level.WARNING, "malformed URL (" + imagePath + ")");
+        } catch (java.io.IOException ex) {
+            logMessage(Level.WARNING, "I/O Errror with URL (" + imagePath
+                    + "): "
+                    + ex.getLocalizedMessage());
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ex) {
+                }
+            }
         }
-
         return imageBytes;
+    }
 
+    @Override
+    public String getLogPrefix() {
+        return "ServerMapTileFactory: ";
     }
 
     /**
@@ -304,6 +288,9 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
     public Properties getProperties(Properties getList) {
         getList = super.getProperties(getList);
         getList.put(prefix + LOCAL_CACHE_ROOT_DIR_PROPERTY, PropUtils.unnull(localCacheDir));
+        if (timeout != TIMEOUT_DEFAULT) {
+            getList.setProperty(prefix + TIMEOUT_PROPERTY, String.valueOf(timeout));
+        }
         return getList;
     }
 
@@ -311,6 +298,7 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
         list = super.getPropertyInfo(list);
         I18n i18n = Environment.getI18n();
         PropUtils.setI18NPropertyInfo(i18n, list, com.bbn.openmap.dataAccess.mapTile.StandardMapTileFactory.class, LOCAL_CACHE_ROOT_DIR_PROPERTY, "Local Cache Tile Directory", "Root directory containing image tiles retrieved from image server.", "com.bbn.openmap.util.propertyEditor.DirectoryPropertyEditor");
+        list.setProperty(TIMEOUT_PROPERTY, "Timeout in milliseconds");
         return list;
     }
 
@@ -319,6 +307,8 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
         prefix = PropUtils.getScopedPropertyPrefix(prefix);
 
         localCacheDir = setList.getProperty(prefix + LOCAL_CACHE_ROOT_DIR_PROPERTY, localCacheDir);
+        timeout = PropUtils.intFromProperties(setList, prefix
+                + TIMEOUT_PROPERTY, TIMEOUT_DEFAULT);
     }
 
     /**
