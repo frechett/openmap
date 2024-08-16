@@ -81,7 +81,6 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
     public ServerMapTileFactory(String rootDir) {
         this.rootDir = rootDir;
         this.fileExt = ".png";
-        verbose = logger.isLoggable(Level.FINE);
     }
 
     /**
@@ -100,8 +99,8 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
              */
             CacheObject ret = searchCache(localLoc);
             if (ret != null) {
-                if (logger.isLoggable(Level.FINE)) {
-                    logger.fine("found tile (" + x + ", " + y + ") in cache");
+                if (isVerbose()) {
+                    logMessage("found tile (" + x + ", " + y + ") in cache");
                 }
                 return ret.obj;
             }
@@ -117,8 +116,8 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
 
         CacheObject ret = searchCache(key);
         if (ret != null) {
-            if (logger.isLoggable(Level.FINE)) {
-                logger.fine("found tile (" + x + ", " + y + ") in cache");
+            if (isVerbose()) {
+                logMessage("found tile (" + x + ", " + y + ") in cache");
             }
             return ret.obj;
         }
@@ -136,16 +135,14 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
     public CacheObject load(Object key, int x, int y, int zoomLevel, Projection proj) {
         if (key instanceof String) {
 
-            if (verbose) {
-                logger.fine("fetching file for cache: " + key);
-            }
+            logMessage("fetching file for cache: " + key);
 
             byte[] imageBytes = null;
 
             CacheObject localVersion = super.load(key, x, y, zoomLevel, proj);
 
             if (localVersion != null) {
-                logger.fine("found version of tile in local cache: " + key);
+                logMessage("found version of tile in local cache: " + key);
                 return localVersion;
             }
 
@@ -171,8 +168,8 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
                     }
 
                 } catch (InterruptedException ie) {
-                    if (logger.isLoggable(Level.FINE)) {
-                        logger.fine("factory interrupted fetching " + imagePath);
+                    if (isVerbose()) {
+                        logMessage("factory interrupted fetching " + imagePath);
                     }
                 }
 
@@ -203,13 +200,13 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
             java.net.URL url = new java.net.URL(imagePath);
             java.net.URLConnection urlc = url.openConnection();
 
-            if (logger.isLoggable(Level.FINER)) {
-                logger.finer("url content type: " + urlc.getContentType());
+            if (isVerbose()) {
+                logMessage("url content type: " + urlc.getContentType());
             }
 
             if (urlc == null || urlc.getContentType() == null) {
-                if (logger.isLoggable(Level.FINE)) {
-                    logger.fine("unable to connect to (tile might be unavailable): " + imagePath);
+                if (isVerbose()) {
+                    logMessage("unable to connect to (tile might be unavailable): " + imagePath);
                 }
 
                 // text
@@ -224,7 +221,7 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
                 // Debug.error(message.toString());
                 // How about we toss the message out to the user
                 // instead?
-                logger.fine(message.toString());
+                logMessage(message.toString());
 
                 // image
             } else if (urlc.getContentType().startsWith("image")) {
@@ -259,7 +256,7 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
         } catch (java.net.MalformedURLException murle) {
             logger.warning("ServerMapTileFactory: URL \"" + imagePath + "\" is malformed.");
         } catch (java.io.IOException ioe) {
-            logger.fine("Couldn't connect to " + imagePath + ", connection problem");
+            logMessage("Couldn't connect to " + imagePath + ", connection problem");
         }
 
         return imageBytes;
@@ -335,8 +332,12 @@ public class ServerMapTileFactory extends StandardMapTileFactory implements MapT
             if (localCacheDirFile.exists()) {
                 try {
                     FileUtils.deleteFile(localCacheDirFile);
+                    if (isVerbose()) {
+                        logMessage("deleted local cache directory: "
+                                + localCacheDirFile.toString());
+                    }
                 } catch (IOException e) {
-                    logger.fine("There's a problem deleting local cache directory: "
+                    logMessage("There's a problem deleting local cache directory: "
                             + e.getMessage());
                 }
             }

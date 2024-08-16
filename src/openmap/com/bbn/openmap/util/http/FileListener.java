@@ -45,25 +45,19 @@ public class FileListener implements HttpRequestListener {
         if (Debug.debugging("http")) {
             Debug.output("FileListener: Looking for file " + filename);
         }
-
-        FileInputStream requestedfile;
-        try {
-            requestedfile = new FileInputStream(filename);
+        try (FileInputStream requestedfile = new FileInputStream(filename)) {
+            // Read in the file's bytes. This doesn't seem super efficient
+            int bytes = requestedfile.available();
+            byte[] b = new byte[bytes];
+            int bytes_read = requestedfile.read(b);
+            if (bytes_read != bytes) {
+                Debug.error("FileListener: Did not read the correct number of bytes for "
+                        + filename);
+            }
+            // and write out the raw bytes
+            e.getWriter().write(new String(b));
         } catch (java.io.FileNotFoundException exception) {
             Debug.error("FileListener: Unable to find file " + filename);
-            return;
-            // Need a return value here
         }
-
-        // Read in the file's bytes. This doesn't seem super efficient
-        int bytes = requestedfile.available();
-        byte[] b = new byte[bytes];
-        int bytes_read = requestedfile.read(b);
-        if (bytes_read != bytes) {
-            Debug.error("FileListener: Did not read the correct number of bytes for "
-                    + filename);
-        }
-        // and write out the raw bytes
-        e.getWriter().write(new String(b));
     }
 }

@@ -82,7 +82,6 @@ public class TileMillMapTileFactory
     public TileMillMapTileFactory(String rootDir) {
         this.rootDir = rootDir;
         this.fileExt = ".png";
-        verbose = logger.isLoggable(Level.FINE);
     }
 
     /**

@@ -101,7 +101,7 @@
 	Standard target, to build everything you can.
 	############################ -->
 	<target name="classes.openmap" depends="jai" description="Compiles the OpenMap classes.  Ext classes compiled if needed.">
-		<javac includeantruntime="false" srcdir="${openmap.src}" destdir="${openmap.classes}" debug="on" excludes="${javac.excludes},${jai.includes}" source="1.5" target="1.5">
+		<javac includeantruntime="false" srcdir="${openmap.src}" destdir="${openmap.classes}" debug="on" excludes="${javac.excludes},${jai.includes}" source="1.8" target="1.8">
 			<classpath refid="ext_tools_classpath" />
 			<compilerarg value="${compiler.args}"/>
 		</javac>

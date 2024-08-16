@@ -104,6 +104,7 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
     public final static String ZOOM_LEVEL_INFO_PROPERTY = "zoomLevelInfo";
     public final static String ZOOM_LEVEL_TILE_SIZE_PROPERTY = "zoomLevelTileSize";
     public final static String TILE_IMAGE_PREPARER_PROPERTY = "tileImagePreparer";
+    public final static String VERBOSE_PROPERTY = "verbose";
     /**
      * Inserted into properties loaded via tiles.omp, so that the
      * EmptyTileHandler can know where the tile set is located, in case it needs
@@ -117,12 +118,13 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
      * directory of the data (tiles.omp).
      */
     public final static String TILE_PROPERTIES = "tiles.omp";
+    private final static Level VERBOSE_DEFAULT = Level.FINE;
     protected ZoomLevelInfo zoomLevelInfo = new ZoomLevelInfo();
     protected String rootDir;
     protected String fileExt = ".png";
     protected String rootDirProperty; // For writing out later, if necessary
     protected EmptyTileHandler emptyTileHandler = null;
-    protected boolean verbose = false;
+    private Level verbose = VERBOSE_DEFAULT;
     /**
      * The zoom level tile size is used by the factory to determine when it
      * needs to get tiles for a different zoom level. The default value is 350.
@@ -153,15 +155,28 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
 
     public StandardMapTileFactory() {
         super(100);
-        verbose = logger.isLoggable(Level.FINE);
     }
 
     public StandardMapTileFactory(MapTileRequester layer, String rootDir, String tileFileExt) {
-        super(100);
+        this();
         setRootDir(rootDir);
         setFileExt(tileFileExt);
-        verbose = logger.isLoggable(Level.FINE);
         this.mapTileRequester = layer;
+    }
+
+    @Override
+    public Logger getLogger() {
+        return logger;
+    }
+
+    @Override
+    public String getLogPrefix() {
+        return "StandardMapTileFactory: ";
+    }
+
+    @Override
+    public Level getVerbose() {
+        return verbose;
     }
 
     @Override
@@ -190,8 +205,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
     public CacheObject load(Object key, int x, int y, int zoomLevel, Projection proj) {
         if (key instanceof String) {
             String imagePath = (String) key;
-            if (verbose) {
-                logger.fine("fetching file for cache: " + imagePath);
+            if (isVerbose()) {
+                logMessage("fetching file for cache: " + imagePath);
             }
 
             try {
@@ -206,14 +221,14 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
                     }
 
                 } else {
-                    logger.fine("Can't find resource located at " + imagePath);
+                    logMessage("Can't find resource located at " + imagePath);
                 }
             } catch (MalformedURLException e) {
-                logger.fine("Can't find resource located at " + imagePath);
+                logMessage("Can't find resource located at " + imagePath);
             } catch (InterruptedException e) {
-                logger.fine("Reading the image file was interrupted: " + imagePath);
+                logMessage("Reading the image file was interrupted: " + imagePath);
             } catch (Exception fnfe) {
-                logger.fine("file not found: " + imagePath);
+                logMessage("file not found: " + imagePath);
             }
         }
         return null;
@@ -274,8 +289,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
         Point2D tileUL = mtcTransform.tileUVToLatLon(pnt, zoomLevel);
         pnt.setLocation(x + 1, y + 1);
         Point2D tileLR = mtcTransform.tileUVToLatLon(pnt, zoomLevel);
-        if (verbose) {
-            logger.fine("tile coords: " + tileUL + ", " + tileLR);
+        if (isVerbose()) {
+            logMessage("tile coords: " + tileUL + ", " + tileLR);
         }
 
         double x1 = Math.min(tileUL.getX(), tileLR.getX());
@@ -340,8 +355,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
     public Object get(Object key, int x, int y, int zoomLevel, Projection proj) {
         CacheObject ret = searchCache(key);
         if (ret != null) {
-            if (logger.isLoggable(Level.FINE)) {
-                logger.fine("found tile (" + x + ", " + y + ") in cache");
+            if (isVerbose()) {
+                logMessage("found tile (" + x + ", " + y + ") in cache");
             }
             return ret.obj;
         }
@@ -369,8 +384,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
     public Object getFromCache(Object key, int x, int y, int zoomLevel) {
         CacheObject ret = searchCache(key);
         if (ret != null) {
-            if (logger.isLoggable(Level.FINE)) {
-                logger.fine("found tile (" + x + ", " + y + ") in cache");
+            if (isVerbose()) {
+                logMessage("found tile (" + x + ", " + y + ") in cache");
             }
             return ret.obj;
         }
@@ -415,9 +430,9 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
                     return new CacheObject(key, raster);
                 }
 
-            } catch (InterruptedException e) {
-                if (logger.isLoggable(Level.FINE)) {
-                    e.printStackTrace();
+            } catch (InterruptedException ex) {
+                if (isVerbose()) {
+                    logMessage(null, ex);
                 }
             }
         }
@@ -469,7 +484,7 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
         }
 
         if (lastProj == null || !proj.getClass().isAssignableFrom(lastProj.getClass())) {
-            logger.fine("Clearing out cache for new projection type");
+            logMessage("Clearing out cache for new projection type");
             clear(); // empty the cache to rebuild OMGraphics for different type
             // projection.
         }
@@ -494,8 +509,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
          */
         if (zoomLevel < 0) {
             zoomLevel = mtcTransform.getZoomLevelForProj(proj, zoomLevelTileSize);
-            if (verbose) {
-                logger.fine("Best zoom level calculated at: " + zoomLevel);
+            if (isVerbose()) {
+                logMessage("Best zoom level calculated at: " + zoomLevel);
             }
         }
 
@@ -516,8 +531,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
             int uvbottom = uvBounds[2];
             int uvright = uvBounds[3];
 
-            if (verbose) {
-                logger.fine("for " + proj + ", fetching tiles between x(" + uvleft + ", " + uvright
+            if (isVerbose()) {
+                logMessage("for " + proj + ", fetching tiles between x(" + uvleft + ", " + uvright
                         + ") y(" + uvup + ", " + uvbottom + ")");
             }
 
@@ -525,12 +540,12 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
             Point2D datelinePnt = proj.forward(new LatLonPoint.Double(upperLeft.getY(), 180d));
             double dlx = datelinePnt.getX();
             boolean dateline = dlx > 0 & dlx < proj.getWidth();
-            logger.fine("Long(180) located at " + dlx);
+            logMessage("Long(180) located at " + dlx);
 
             if (!dateline) {
                 getTiles(uvleft, uvright, uvup, uvbottom, zoomLevelInfo, proj, list);
             } else {
-                logger.fine("handling DATELINE");
+                logMessage("handling DATELINE");
                 getTiles(uvleft, (int) Math.pow(2, zoomLevel), uvup, uvbottom, zoomLevelInfo, proj, list);
                 getTiles(0, uvright, uvup, uvbottom, zoomLevelInfo, proj, list);
             }
@@ -565,14 +580,14 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
 
     protected void getTiles(int uvleft, int uvright, int uvup, int uvbottom,
                             ZoomLevelInfo zoomLevelInfo, Projection proj, OMGraphicList list) {
-        if (verbose) {
-            logger.fine("for zoom level: " + zoomLevelInfo.getZoomLevel()
+        if (isVerbose()) {
+            logMessage("for zoom level: " + zoomLevelInfo.getZoomLevel()
                     + ", screen covers uv coords [t:" + uvup + ", l:" + uvleft + ", b:" + uvbottom
                     + ", r:" + uvright + "]");
         }
 
         if (zoomLevelInfo.getZoomLevel() == 0) {
-            logger.fine("got one tile, OM can't draw a single tile covering the earth. Sorry.");
+            logMessage("got one tile, OM can't draw a single tile covering the earth. Sorry.");
         }
 
         List<LoadObj> reloads = new ArrayList<LoadObj>();
@@ -621,8 +636,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
             }
         }
 
-        if (verbose) {
-            logger.fine("found " + list.size() + " frames in cache, loading " + reloads.size()
+        if (isVerbose()) {
+            logMessage("found " + list.size() + " frames in cache, loading " + reloads.size()
                     + " others now...");
         }
 
@@ -648,8 +663,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
             }
         }
 
-        if (verbose) {
-            logger.fine("finished loading " + reloads.size() + " frames from source for screen"
+        if (isVerbose()) {
+            logMessage("finished loading " + reloads.size() + " frames from source for screen"
                     + (doExtraTiles ? ", moving to off-screen frames..." : ""));
         }
 
@@ -725,8 +740,8 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
             }
         }
 
-        if (verbose) {
-            logger.fine("finished loading all tiles (" + list.size() + ")");
+        if (isVerbose()) {
+            logMessage("finished loading all tiles (" + list.size() + ")");
         }
     }
 
@@ -763,7 +778,7 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
                 raster.generate(proj);
                 list.add(raster);
 
-                if (logger.isLoggable(Level.FINE)) {
+                if (isVerbose()) {
                     raster.putAttribute(OMGraphic.TOOLTIP, imagePath);
                 }
             }
@@ -934,6 +949,9 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
             }
         }
 
+        if (verbose != VERBOSE_DEFAULT) {
+            getList.put(prefix + VERBOSE_PROPERTY, verbose.toString());
+        }
         return getList;
     }
 
@@ -962,48 +980,56 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
         setPropertyPrefix(prefix);
         prefix = PropUtils.getScopedPropertyPrefix(prefix);
 
-        String rootDirectory = setList.getProperty(prefix + ROOT_DIR_PROPERTY);
-        if (rootDirectory != null) {
-            setRootDir(rootDirectory);
+        String s = setList.getProperty(prefix + VERBOSE_PROPERTY);
+        if (s != null) {
+            try {
+                this.verbose = Level.parse(s);
+            } catch (Exception ex) {
+            }
         }
 
-        String tmpFileExt = setList.getProperty(prefix + FILE_EXT_PROPERTY, getFileExt());
+        s = setList.getProperty(prefix + ROOT_DIR_PROPERTY);
+        if (s != null) {
+            setRootDir(s);
+        }
+
+        s = setList.getProperty(prefix + FILE_EXT_PROPERTY, getFileExt());
 
         // Add a period if it doesn't exist.
-        if (tmpFileExt != null) {
-            setFileExt(tmpFileExt);
+        if (s != null) {
+            setFileExt(s);
         }
 
-        String mapTileCoordinateTransform = setList.getProperty(prefix + MTCTRANSFORM_PROPERTY);
-        if (mapTileCoordinateTransform != null) {
-            Object obj = ComponentFactory.create(mapTileCoordinateTransform);
+        s = setList.getProperty(prefix + MTCTRANSFORM_PROPERTY);
+        if (s != null) {
+            Object obj = ComponentFactory.create(s);
 
             if (obj instanceof MapTileCoordinateTransform) {
                 setMtcTransform((MapTileCoordinateTransform) obj);
             }
         }
 
-        String emptyTileHandlerString = setList.getProperty(prefix + EMPTY_TILE_HANDLER_PROPERTY);
-        if (emptyTileHandlerString != null) {
-            Object obj = ComponentFactory.create(emptyTileHandlerString, prefix, setList);
+        s = setList.getProperty(prefix + EMPTY_TILE_HANDLER_PROPERTY);
+        if (s != null) {
+            Object obj = ComponentFactory.create(s, prefix, setList);
 
             if (obj instanceof EmptyTileHandler) {
                 setEmptyTileHandler((EmptyTileHandler) obj);
             }
         }
 
-        String zoomLevelInfoString = setList.getProperty(prefix + ZOOM_LEVEL_INFO_PROPERTY);
-        if (zoomLevelInfoString != null) {
-            Object obj = ComponentFactory.create(zoomLevelInfoString, prefix, setList);
+        s = setList.getProperty(prefix + ZOOM_LEVEL_INFO_PROPERTY);
+        if (s != null) {
+            Object obj = ComponentFactory.create(s, prefix, setList);
 
             if (obj instanceof ZoomLevelInfo) {
                 setZoomLevelInfo((ZoomLevelInfo) obj);
             }
         }
 
-        String tileImagePreparerString = setList.getProperty(prefix + TILE_IMAGE_PREPARER_PROPERTY);
-        if (tileImagePreparerString != null) {
-            Object obj = ComponentFactory.create(tileImagePreparerString, prefix, setList);
+        s = setList.getProperty(prefix + TILE_IMAGE_PREPARER_PROPERTY);
+        if (s != null) {
+            Object obj = ComponentFactory.create(s, prefix, setList);
             if (obj instanceof TileImagePreparer) {
                 setTileImagePreparer((TileImagePreparer) obj);
             }
@@ -1079,10 +1105,10 @@ public class StandardMapTileFactory extends CacheHandler implements MapTileFacto
                         }
 
                         if (jarFileFound) {
-                            logger.fine("adding " + jarName + " to classpath");
+                            logMessage("adding " + jarName + " to classpath");
                             ClasspathHacker.addFile(jarName);
                         } else {
-                            logger.fine("can't find " + jarName + ", not adding to classpath");
+                            logMessage("can't find " + jarName + ", not adding to classpath");
                         }
 
                         // JarFile jarFile = new JarFile(jarName);

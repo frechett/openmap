@@ -36,6 +36,7 @@ import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
+import javax.swing.SwingUtilities;
 
 import com.bbn.openmap.Environment;
 import com.bbn.openmap.I18n;
@@ -137,6 +138,9 @@ public class MapTileLayer extends OMGraphicHandlerLayer implements MapTileReques
 
     public static Logger logger = Logger.getLogger("com.bbn.openmap.layer.imageTile.TileLayer");
 
+    /** Set to true to call doPrepare() when prepare() is called on the EDT */
+    protected static boolean callDoPrepareEDT = true;
+
     /**
      * Property that sets the class name of the MapTileFactory to use for this
      * layer.
@@ -202,16 +206,17 @@ public class MapTileLayer extends OMGraphicHandlerLayer implements MapTileReques
     protected DrawingAttributes attributionAttributes = DrawingAttributes.getDefaultClone();
 
     public MapTileLayer() {
-        setProjectionChangePolicy(new com.bbn.openmap.layer.policy.ListResetPCPolicy(this));
-        setTileFactory(new StandardMapTileFactory());
-        // We need to make this layer uninterruptable, because that messes with
-        // the image file loading.
-        setInterruptable(false);
+        this(new StandardMapTileFactory());
     }
 
     public MapTileLayer(MapTileFactory tileFactory) {
-        this();
-        this.tileFactory = tileFactory;
+        // We need to make this layer uninterruptable, because that messes with
+        // the image file loading.
+        setInterruptable(false);
+        setProjectionChangePolicy(new com.bbn.openmap.layer.policy.ListResetPCPolicy(this));
+        if (tileFactory != null) {
+            setTileFactory(tileFactory);
+        }
     }
 
     /**
@@ -222,15 +227,21 @@ public class MapTileLayer extends OMGraphicHandlerLayer implements MapTileReques
      *         projection.
      */
     public synchronized OMGraphicList prepare() {
-
         Projection projection = getProjection();
-
         if (projection == null) {
             return null;
         }
 
 		if (tileFactory != null) {
-			return tileFactory.getTiles(projection, zoomLevel, new OMGraphicList());
+            // ensure not EDT
+            if (!SwingUtilities.isEventDispatchThread()) {
+                return tileFactory.getTiles(projection, zoomLevel, new OMGraphicList());
+            } else {
+                tileFactory.logMessage("prepare() called on EDT");
+                if (callDoPrepareEDT) {
+                    doPrepare();
+                }
+            }
 		}
 		return null;
 	}

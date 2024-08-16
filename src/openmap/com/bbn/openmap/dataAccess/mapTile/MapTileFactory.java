@@ -24,6 +24,9 @@
 
 package com.bbn.openmap.dataAccess.mapTile;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import com.bbn.openmap.omGraphics.OMGraphicList;
 import com.bbn.openmap.proj.Projection;
 
@@ -81,4 +84,88 @@ public interface MapTileFactory {
      * @return EmptyTileHandler used by the factory.
      */
     EmptyTileHandler getEmptyTileHandler();
+
+    /**
+     * Get the logger.
+     * 
+     * @return the logger.
+     */
+    Logger getLogger();
+
+    /**
+     * Get the log prefix.
+     * 
+     * @return the log prefix or null if none.
+     */
+    default String getLogPrefix() {
+        return null;
+    }
+
+    /**
+     * Get the verbose level.
+     * 
+     * @return the verbose level.
+     */
+    default Level getVerbose() {
+        return Level.FINE;
+    }
+
+    /**
+     * Determines if verbose logging is enabled.
+     * 
+     * @return true if verbose logging is enabled, false otherwise.
+     */
+    default boolean isVerbose() {
+        return getLogger().isLoggable(getVerbose());
+    }
+
+    /**
+     * Log the message.
+     * 
+     * @param level the level.
+     * @param s the message.
+     */
+    default void logMessage(Level level, String s) {
+        logMessage(level, s, null);
+    }
+
+    /**
+     * Log the message.
+     * 
+     * @param level the level.
+     * @param s the message or null if none.
+     * @param ex the exception or null if none.
+     */
+    default void logMessage(Level level, String s, Exception ex) {
+        String logPrefix = getLogPrefix();
+        if (s == null || s.isEmpty()) {
+            s = logPrefix;
+        } else if (logPrefix != null && !logPrefix.isEmpty()) {
+            s = logPrefix + s;
+        }
+        if (ex != null) {
+            getLogger().log(level, s, ex);
+        } else {
+            getLogger().log(level, s);
+        }
+    }
+
+    /**
+     * Log message if verbose.
+     * 
+     * @param s the message.
+     */
+    default void logMessage(String s) {
+        logMessage(getVerbose(), s, null);
+    }
+
+    /**
+     * Log message if verbose.
+     * 
+     * @param s the message or null if none.
+     * @param ex the exception or null if none.
+     */
+    default void logMessage(String s, Exception ex) {
+        logMessage(getVerbose(), s, ex);
+    }
 }

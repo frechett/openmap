@@ -67,18 +67,15 @@ public class LinkServerStarter {
      * the client.
      */
     public void run() {
-        try {
-            ServerSocket serverSocket = new ServerSocket(serverPort);
+        try (ServerSocket serverSocket = new ServerSocket(serverPort)) {
             Socket socket;
             System.out.println("LinkServerStarter: running on port "
                     + serverPort);
-
             while (true) {
                 socket = serverSocket.accept();
                 System.out.println("LinkServer: fielding connection");
                 ((Thread) startNewServer(socket)).start();
             }
-
         } catch (java.io.IOException ioe) {
             System.err.println("LinkServer: IOException while running:");
             System.err.println(ioe);

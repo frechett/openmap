@@ -409,7 +409,6 @@ public class XTIFFDirectory
 
                while (index < count) {
                   while ((index < count) && (bvalues[index++] != 0)) {
-                      ;
                   }
                   // When we encountered zero, means one string has ended
                   v.add(new String(bvalues, prevIndex, (index - prevIndex)));

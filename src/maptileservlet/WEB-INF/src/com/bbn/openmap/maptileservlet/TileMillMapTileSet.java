@@ -9,6 +9,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Properties;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.ImageIcon;
@@ -95,40 +96,9 @@ public class TileMillMapTileSet extends StandardMapTileSet {
             }
             rs.close();
             conn.close();
-        } catch (Exception e) {
-            getLogger().warning("something went wrong fetching image from database: "
-                    + e.getMessage());
-            e.printStackTrace();
+        } catch (Exception ex) {
+            logMessage(Level.WARNING, "something went wrong fetching image from database", ex);
         }
-
         return imageData;
     }
-
-    /**
-     * Holder for this class's Logger. This allows for lazy initialization of
-     * the logger.
-     */
-    private static final class LoggerHolder {
-        /**
-         * The logger for this class
-         */
-        private static final Logger LOGGER = Logger.getLogger(MapTileSet.class.getName());
-
-        /**
-         * Prevent instantiation
-         */
-        private LoggerHolder() {
-            throw new AssertionError("This should never be instantiated");
-        }
-    }
-
-    /**
-     * Get the logger for this class.
-     * 
-     * @return logger for this class
-     */
-    private static Logger getLogger() {
-        return LoggerHolder.LOGGER;
-    }
-
 }
